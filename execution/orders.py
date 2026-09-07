@@ -3,10 +3,6 @@ from binance.exceptions import BinanceAPIException
 import logging
 import math
 
-from numpy.ma.core import logical_or
-
-from core import connection
-
 def obter_saldo(client, ativo):
     """
     Pega o saldo disponivel referente ao ativo
