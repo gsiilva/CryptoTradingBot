@@ -2,6 +2,7 @@ from binance.enums import SIDE_BUY, SIDE_SELL, ORDER_TYPE_MARKET
 from binance.exceptions import BinanceAPIException
 import logging
 import math
+from core.notifier import enviar_email
 
 def obter_saldo(client, ativo):
     """
@@ -17,7 +18,7 @@ def obter_saldo(client, ativo):
         logging.error(f"Erro ao buscar saldo do ativo: {e.message}")
         return 0.0
 
-def calcular_quantidade(client, symbol, ativo_base, ativo_cotacao, percentual=0.90):
+def calcular_quantidade(client, symbol, ativo_base, ativo_cotacao, percentual=0.95):
     """
     Calcula a quantidade permitida pela binance para comprar e vender
     PARA COMPRA: Usa o percentual definido
@@ -78,9 +79,13 @@ def executar_ordem(client, symbol, side, quantity):
 
     except BinanceAPIException as e:
         logging.error(f"Erro na corretora ao executar ordem: {e.status_code} - {e.message}")
+        mensagem = f"Erro na corretora ao executar ordem: {e.status_code} - {e.message}"
+        enviar_email("ERRO NA ORDEM", mensagem)
         return None
     except Exception as e:
         logging.error(f"Erro inesperado ao enviar ordem: {e}")
+        mensagem = f"Erro inesperado ao enviar ordem: {e}"
+        enviar_email("ERRO NA ORDEM", mensagem)
         return None
 
 
@@ -99,12 +104,12 @@ if __name__ == "__main__":
         # O Bitcoin, por exemplo, exige no mínimo 0.001 ou 0.0001 dependendo do par.
         # Vamos tentar comprar uma pequena quantidade para testar.
 
-        simbolo_teste = "BTCUSDT"
-        quantidade_teste = 0.009  # Ajuste conforme o saldo da sua conta Demo
+        simbolo_teste = "SOLUSDT"
+        quantidade_teste = 1  # Ajuste conforme o saldo da sua conta Demo
 
         print(f"\n--- Iniciando Teste de Ordem na Conta Demo ---")
         # Envia a ordem de compra
-        resultado = executar_ordem(cliente, simbolo_teste, SIDE_BUY, quantidade_teste)
+        resultado = executar_ordem(cliente, simbolo_teste, SIDE_SELL, quantidade_teste)
 
         if resultado:
             print("\nDetalhes completos devolvidos pela Binance:")

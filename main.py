@@ -6,6 +6,7 @@ from binance.enums import SIDE_BUY, SIDE_SELL
 
 import config
 from core.connection import conectar_binance
+from core.notifier import enviar_email
 from data.market import buscar_dados_historicos
 from strategies.rsi_ema import analisar_mercado
 from execution.orders import calcular_quantidade, executar_ordem
@@ -28,8 +29,8 @@ def main():
         return
 
     # Parâmetros de operação
-    simbolo = "BTCUSDT"
-    ativo_base = "BTC"
+    simbolo = "SOLUSDT"
+    ativo_base = "SOL"
     ativo_cotacao = "USDT"
     intervalo_candle = "15m"
     quantidade_candles = 50  # O suficiente para a EMA de 21 calcular
@@ -60,7 +61,10 @@ def main():
 
                         ordem = executar_ordem(cliente, simbolo, SIDE_BUY, qtd)
                         if ordem:
-                            comprado = True  # Atualiza o estado
+                            comprado = True
+
+                            mensagem = f"COMPRA DE {qtd} {simbolo} REALIZADA!\nID DA ORDEM {ordem['orderId']}"
+                            enviar_email(f"✅COMPRA EXECUTADA: {simbolo}", mensagem)
                     else:
                         logging.info("Sinal de COMPRA mantido, mas o bot já está posicionado. Ignorando.")
 
@@ -72,7 +76,10 @@ def main():
 
                         ordem = executar_ordem(cliente, simbolo, SIDE_SELL, qtd)
                         if ordem:
-                            comprado = False  # Bot volta a ficar zerado
+                            comprado = False
+
+                            mensagem = f"VENDA DE {qtd} {simbolo} REALIZADA!\nID DA ORDEM {ordem['orderId']}"
+                            enviar_email(f"✅VENDA EXECUTADA: {simbolo}", mensagem)
                     else:
                         logging.info("Sinal de VENDA mantido, mas o bot já está zerado. Ignorando.")
 
@@ -84,10 +91,12 @@ def main():
 
         except Exception as e:
             logging.error(f"Erro no loop principal: {e}")
+
+            mensagem = f"ERRO NO LOOP PRINCIPAL: {e}!\nRECOMENDADO DESLIGAMENTO!"
+            enviar_email("❌ERRO NO LOOP PRINCIPAL", mensagem)
             # Em caso de erro (ex: queda rápida de internet), espera 1 minuto e tenta de novo
             time.sleep(60)
 
 
 if __name__ == "__main__":
-    # Mantém o bot rodando apenas se o arquivo for executado diretamente
     main()
