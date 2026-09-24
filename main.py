@@ -29,8 +29,8 @@ def main():
         return
 
     # Parâmetros de operação
-    simbolo = "SOLUSDT"
-    ativo_base = "SOL"
+    simbolo = "ZECUSDT"
+    ativo_base = "ZEC"
     ativo_cotacao = "USDT"
     intervalo_candle = "15m"
     quantidade_candles = 50  # O suficiente para a EMA de 21 calcular
@@ -64,7 +64,7 @@ def main():
                             comprado = True
 
                             mensagem = f"COMPRA DE {qtd} {simbolo} REALIZADA!\nID DA ORDEM {ordem['orderId']}"
-                            enviar_email(f"✅COMPRA EXECUTADA: {simbolo}", mensagem)
+                            enviar_email(f"✅COMPRA EXECUTADA: {simbolo}", mensagem, True)
                     else:
                         logging.info("Sinal de COMPRA mantido, mas o bot já está posicionado. Ignorando.")
 
@@ -79,7 +79,7 @@ def main():
                             comprado = False
 
                             mensagem = f"VENDA DE {qtd} {simbolo} REALIZADA!\nID DA ORDEM {ordem['orderId']}"
-                            enviar_email(f"✅VENDA EXECUTADA: {simbolo}", mensagem)
+                            enviar_email(f"✅VENDA EXECUTADA: {simbolo}", mensagem, True)
                     else:
                         logging.info("Sinal de VENDA mantido, mas o bot já está zerado. Ignorando.")
 
@@ -93,7 +93,7 @@ def main():
             logging.error(f"Erro no loop principal: {e}")
 
             mensagem = f"ERRO NO LOOP PRINCIPAL: {e}!\nRECOMENDADO DESLIGAMENTO!"
-            enviar_email("❌ERRO NO LOOP PRINCIPAL", mensagem)
+            enviar_email("❌ERRO NO LOOP PRINCIPAL", mensagem, False)
             # Em caso de erro (ex: queda rápida de internet), espera 1 minuto e tenta de novo
             time.sleep(60)
 

@@ -80,12 +80,12 @@ def executar_ordem(client, symbol, side, quantity):
     except BinanceAPIException as e:
         logging.error(f"Erro na corretora ao executar ordem: {e.status_code} - {e.message}")
         mensagem = f"Erro na corretora ao executar ordem: {e.status_code} - {e.message}"
-        enviar_email("ERRO NA ORDEM", mensagem)
+        enviar_email("ERRO NA ORDEM", mensagem, False)
         return None
     except Exception as e:
         logging.error(f"Erro inesperado ao enviar ordem: {e}")
         mensagem = f"Erro inesperado ao enviar ordem: {e}"
-        enviar_email("ERRO NA ORDEM", mensagem)
+        enviar_email("ERRO NA ORDEM", mensagem, False)
         return None
 
 
