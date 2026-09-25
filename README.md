@@ -85,7 +85,7 @@ A position is only opened when both the EMA crossover **and** the RSI filter agr
 ### Installation
 
 ```bash
-git clone https://github.com/<gsiilva>/CryptoTradingBot.git
+git clone https://github.com/gsiilva/CryptoTradingBot.git
 cd CryptoTradingBot
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
