@@ -100,9 +100,8 @@ if __name__ == "__main__":
 
     cliente = conectar_binance()
     if cliente:
-        # ATENÇÃO: A Binance é rígida com a quantidade (LOT_SIZE).
-        # O Bitcoin, por exemplo, exige no mínimo 0.001 ou 0.0001 dependendo do par.
-        # Vamos tentar comprar uma pequena quantidade para testar.
+        # ATENÇÃO: A Binance é rígida com a quantidade (LOT_SIZE)
+        # O Bitcoin, por exemplo, exige no mínimo 0.001 ou 0.0001 dependendo do par
 
         simbolo_teste = "SOLUSDT"
         quantidade_teste = 1  # Ajuste conforme o saldo da sua conta Demo

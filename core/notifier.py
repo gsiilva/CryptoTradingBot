@@ -13,7 +13,7 @@ def enviar_email(assunto, corpo, status):
         with open(caminho, "r", encoding="utf-8") as file:
             html = file.read()
 
-        html = html.replace("{{ titulo }}", "CryptoTradingBot")
+        html = html.replace("{{ titulo }}", "Novo Alerta")
         html = html.replace("{{ nome }}", "Silva")
         html = html.replace("{{ mensagem }}", corpo)
         if status:

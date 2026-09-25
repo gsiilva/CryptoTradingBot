@@ -10,7 +10,7 @@ def analisar_mercado(df):
     Retornos possíveis: "COMPRAR", "VENDER" ou "AGUARDAR"
     """
     try:
-        # 1. Calcular os indicadores e criar novas colunas
+        #  Calcular os indicadores e criar novas colunas
         df['ema_rapida'] = ta.ema(df['close'], length=9)
         df['ema_lenta'] = ta.ema(df['close'], length=21)
         df['rsi'] = ta.rsi(df['close'], length=14)
@@ -18,11 +18,11 @@ def analisar_mercado(df):
         # Removemos as linhas iniciais que não têm dados suficientes para o cálculo
         df.dropna(inplace=True)
 
-        # 2. Pegar os dois últimos candles fechados para verificar cruzamentos
+        #  Pegar os dois últimos candles fechados para verificar cruzamentos
         candle_atual = df.iloc[-1]
         candle_anterior = df.iloc[-2]
 
-        # 3. Lógica de Compra (Golden Cross + RSI saudável)
+        #  Lógica de Compra (Golden Cross + RSI saudável)
         cruzou_pra_cima = (candle_anterior['ema_rapida'] <= candle_anterior['ema_lenta']) and \
                           (candle_atual['ema_rapida'] > candle_atual['ema_lenta'])
         rsi_saudavel = candle_atual['rsi'] < 70
@@ -31,7 +31,7 @@ def analisar_mercado(df):
             logging.info(f"SINAL DE COMPRA! EMA 9 cruzou EMA 21 para cima. RSI: {candle_atual['rsi']:.2f}")
             return "COMPRAR"
 
-        # 4. Lógica de Venda (Death Cross)
+        #  Lógica de Venda (Death Cross)
         cruzou_pra_baixo = (candle_anterior['ema_rapida'] >= candle_anterior['ema_lenta']) and \
                            (candle_atual['ema_rapida'] < candle_atual['ema_lenta'])
 

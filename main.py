@@ -22,27 +22,27 @@ logging.basicConfig(
 def main():
     logging.info("Iniciando o Bot")
 
-    # 1. Estabelece a conexão
+    # Estabelece a conexão
     cliente = conectar_binance()
     if not cliente:
         logging.error("Falha crítica ao conectar com a Binance. Encerrando o bot.")
         return
 
     # Parâmetros de operação
-    simbolo = "ZECUSDT"
-    ativo_base = "ZEC"
+    simbolo = "BTCUSDT"
+    ativo_base = "BTC"
     ativo_cotacao = "USDT"
     intervalo_candle = "15m"
     quantidade_candles = 50  # O suficiente para a EMA de 21 calcular
 
     tempo_espera_segundos = 60  # Roda o loop a cada 1 minuto
 
-    # Variável de estado: O bot começa sem posição (zerado)
+    # Variável de estado
     comprado = False
 
     logging.info(f"Bot em execução. Par: {simbolo} | Gráfico: {intervalo_candle} | Checagem: {tempo_espera_segundos}s")
 
-    # 2. O Loop Infinito (Coração do Bot)
+    # Loop Infinito
     while True:
         try:
             # Busca o DataFrame de preços
@@ -52,7 +52,7 @@ def main():
                 # Envia para a estratégia decidir
                 sinal = analisar_mercado(df)
 
-                # 3. Execução das ordens baseada no sinal e no estado atual
+                # Execução das ordens baseada no sinal e no estado atual
                 if sinal == "COMPRAR":
                     if not comprado:
                         logging.info("Sinal de COMPRA confirmado. Calculando tamanho da mão...")
