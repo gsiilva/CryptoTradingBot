@@ -78,12 +78,18 @@ A position is only opened when both the EMA crossover **and** the RSI filter agr
 
 ### Prerequisites
 
+#### For local execution: 
 - Python 3.10+
 - A Binance account with API keys generated for the **Demo Trading (Testnet)** environment
 - `pip` for dependency management
 
+#### For Docker Deployment:
+- Docker
+
+
 ### Installation
 
+#### Local Python Environment:
 ```bash
 git clone https://github.com/gsiilva/CryptoTradingBot.git
 cd CryptoTradingBot
@@ -92,17 +98,41 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+#### Docker:
+```bash
+git clone https://github.com/gsiilva/CryptoTradingBot.git
+cd CryptoTradingBot
+docker build -t crypto-trading-botv1 .
+```
+
 ### Configuration
 
 Credentials are read directly from **system environment variables** via `os.getenv()` — no `.env` file is used. On Windows, set the variables before running the bot
 
+For Docker deployments, create a .env file containing the required environment variables
+
 ### Running the Bot
 
+#### Local:
 ```bash
 python main.py
 ```
 
-The bot will authenticate, start monitoring the configured market, and log all signals, trades, and errors to the console (and optionally to a log file).
+#### Docker:
+```bash
+docker run --env-file .env crypto-trading-botv1
+```
+
+For continuous execution with automatic container restart:
+```bash
+docker run -d \
+  --restart unless-stopped \
+  --env-file .env \
+  --name crypto-trading-bot \
+  crypto-trading-botv1
+```
+
+The bot will authenticate, start monitoring the configured market, and log all signals, trades, and errors to the console.
 
 ---
 
