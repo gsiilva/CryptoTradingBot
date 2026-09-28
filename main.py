@@ -29,8 +29,8 @@ def main():
         return
 
     # Parâmetros de operação
-    simbolo = "BTCUSDT"
-    ativo_base = "BTC"
+    simbolo = "ZECUSDT"
+    ativo_base = "ZEC"
     ativo_cotacao = "USDT"
     intervalo_candle = "15m"
     quantidade_candles = 50  # O suficiente para a EMA de 21 calcular
