@@ -1,115 +1,104 @@
-from binance.enums import SIDE_BUY, SIDE_SELL, ORDER_TYPE_MARKET
-from binance.exceptions import BinanceAPIException
 import logging
-import math
+from decimal import Decimal, ROUND_DOWN
+
+from binance.enums import ORDER_TYPE_MARKET, SIDE_BUY
+from binance.exceptions import BinanceAPIException
+
 from core.notifier import enviar_email
 
+
 def obter_saldo(client, ativo):
-    """
-    Pega o saldo disponivel referente ao ativo
-    """
     try:
-        conta = client.get_account()
-        for balance in conta['balances']:
-            if balance['asset'] == ativo:
-                return float(balance['free'])
+        for balance in client.get_account()["balances"]:
+            if balance["asset"] == ativo:
+                return float(balance["free"])
         return 0.0
-    except Exception as e:
-        logging.error(f"Erro ao buscar saldo do ativo: {e.message}")
+    except Exception:
+        logging.exception("Erro ao buscar saldo de %s", ativo)
         return 0.0
+
+
+def _filtros(client, symbol):
+    info = client.get_symbol_info(symbol)
+    if not info:
+        raise ValueError(f"Símbolo não encontrado: {symbol}")
+    return {item["filterType"]: item for item in info["filters"]}
+
+
+def obter_minimo_notional(client, symbol):
+    """Retorna o valor mínimo negociável do par, ou None se não estiver disponível."""
+    try:
+        filters = _filtros(client, symbol)
+        for filter_type in ("NOTIONAL", "MIN_NOTIONAL"):
+            minimum = filters.get(filter_type, {}).get("minNotional")
+            if minimum is not None:
+                return float(minimum)
+    except Exception:
+        logging.exception("Erro ao consultar valor mínimo para %s", symbol)
+    return None
+
 
 def calcular_quantidade(client, symbol, ativo_base, ativo_cotacao, percentual=0.95):
-    """
-    Calcula a quantidade permitida pela binance para comprar e vender
-    PARA COMPRA: Usa o percentual definido
-    PARA VENDA: Usa 100% do ativo base
-    """
+    """Calcula quantidade respeitando stepSize e validações de lote/valor mínimo."""
     try:
-        info = client.get_symbol_info(symbol)
-        step_size = 0.00001 # valor padrao por seguranca
+        filters = _filtros(client, symbol)
+        # A ordem é MARKET; quando disponível, valide o filtro específico dela.
+        lot = filters.get("MARKET_LOT_SIZE") or filters.get("LOT_SIZE")
+        if not lot:
+            raise ValueError("Filtro de lote ausente")
+        step = Decimal(lot["stepSize"])
 
-        for filter in info['filters']:
-            if filter['filterType'] == 'LOT_SIZE':
-                step_size = float(filter['stepSize'])
-                break
+        if percentual > 0:
+            if not 0 < percentual <= 1:
+                raise ValueError("percentual deve estar entre 0 e 1")
+            quote_balance = Decimal(str(obter_saldo(client, ativo_cotacao)))
+            price = Decimal(str(client.get_symbol_ticker(symbol=symbol)["price"]))
+            raw = quote_balance * Decimal(str(percentual)) / price
+        else:
+            raw = Decimal(str(obter_saldo(client, ativo_base)))
 
-        casas_decimais = max(0, int(round(-math.log10(step_size))))
-        fator_truncamento = 10 ** casas_decimais
+        quantity = (raw / step).to_integral_value(rounding=ROUND_DOWN) * step
+        if quantity < Decimal(lot["minQty"]) or quantity > Decimal(lot["maxQty"]):
+            logging.warning("Quantidade %s fora dos limites LOT_SIZE do par %s", quantity, symbol)
+            return 0.0
 
-        if percentual > 0: # logica pra compra, compra 90%
-            saldo_dolar = obter_saldo(client, ativo_cotacao)
-            valor_investir = saldo_dolar * percentual
+        price = Decimal(str(client.get_symbol_ticker(symbol=symbol)["price"]))
+        min_notional = filters.get("NOTIONAL", filters.get("MIN_NOTIONAL", {})).get("minNotional")
+        if min_notional and quantity * price < Decimal(min_notional):
+            logging.warning("Valor estimado %.8f abaixo do mínimo de %s para %s", quantity * price, min_notional, symbol)
+            return 0.0
+        return float(quantity)
+    except Exception:
+        logging.exception("Erro ao calcular quantidade para %s", symbol)
+        return 0.0
 
-            ticker = client.get_symbol_ticker(symbol=symbol)
-            preco_atual = float(ticker['price'])
 
-            quantidade_bruta = valor_investir / preco_atual
-
-        else: # logica pra venda, vende 100%
-            quantidade_bruta = obter_saldo(client, ativo_base)
-
-        quantidade_final = math.floor(quantidade_bruta * fator_truncamento) / fator_truncamento
-        return quantidade_final
-
-    except Exception as e:
-        logging.error(f"Erro ao calcular quantidade: {e.message}")
+def preco_medio_execucao(order):
+    fills = order.get("fills") or []
+    total_qty = sum(Decimal(fill["qty"]) for fill in fills)
+    total_quote = sum(Decimal(fill["qty"]) * Decimal(fill["price"]) for fill in fills)
+    if total_qty:
+        return float(total_quote / total_qty)
+    executed = Decimal(str(order.get("executedQty", "0")))
+    quote = Decimal(str(order.get("cummulativeQuoteQty", "0")))
+    return float(quote / executed) if executed else 0.0
 
 
 def executar_ordem(client, symbol, side, quantity):
-    """
-    Envia a ordem a mercado para a corretora.
-    """
     try:
         if quantity <= 0:
-            logging.warning("Quantidade calculada é zero. Ordem cancelada.")
+            logging.warning("Quantidade zero; ordem cancelada.")
             return None
-
-        direcao = "COMPRA" if side == SIDE_BUY else "VENDA"
-        logging.info(f"Preparando ordem de {direcao} de {quantity} {symbol} a mercado...")
-
-        ordem = client.create_order(
-            symbol=symbol,
-            side=side,
-            type=ORDER_TYPE_MARKET,
-            quantity=quantity
-        )
-
-        logging.info(f"Ordem executada com sucesso! ID da Ordem: {ordem['orderId']}")
-        return ordem
-
-    except BinanceAPIException as e:
-        logging.error(f"Erro na corretora ao executar ordem: {e.status_code} - {e.message}")
-        mensagem = f"Erro na corretora ao executar ordem: {e.status_code} - {e.message}"
-        enviar_email("ERRO NA ORDEM", mensagem, False)
+        direction = "COMPRA" if side == SIDE_BUY else "VENDA"
+        logging.info("Enviando ordem a mercado: %s %s %s", direction, quantity, symbol)
+        order = client.create_order(symbol=symbol, side=side, type=ORDER_TYPE_MARKET, quantity=quantity)
+        logging.info("Ordem executada; id=%s", order.get("orderId"))
+        return order
+    except BinanceAPIException as exc:
+        logging.error("Erro da Binance: %s - %s", exc.status_code, exc.message)
+        enviar_email("ERRO NA ORDEM", f"Erro da Binance: {exc.status_code} - {exc.message}", False)
         return None
-    except Exception as e:
-        logging.error(f"Erro inesperado ao enviar ordem: {e}")
-        mensagem = f"Erro inesperado ao enviar ordem: {e}"
-        enviar_email("ERRO NA ORDEM", mensagem, False)
+    except Exception as exc:
+        logging.exception("Erro inesperado ao enviar ordem")
+        enviar_email("ERRO NA ORDEM", f"Erro inesperado ao enviar ordem: {exc}", False)
         return None
-
-
-if __name__ == "__main__":
-    import sys
-    import os
-
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from core.connection import conectar_binance
-
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
-
-    cliente = conectar_binance()
-    if cliente:
-        # ATENÇÃO: A Binance é rígida com a quantidade (LOT_SIZE)
-        # O Bitcoin, por exemplo, exige no mínimo 0.001 ou 0.0001 dependendo do par
-
-        simbolo_teste = "SOLUSDT"
-        quantidade_teste = 1  # Ajuste conforme o saldo da sua conta Demo
-
-        print(f"\n--- Iniciando Teste de Ordem na Conta Demo ---")
-        # Envia a ordem de compra
-        resultado = executar_ordem(cliente, simbolo_teste, SIDE_SELL, quantidade_teste)
-
-        if resultado:
-            print("\nDetalhes completos devolvidos pela Binance:")
-            print(resultado)
