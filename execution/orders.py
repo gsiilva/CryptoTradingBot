@@ -42,11 +42,18 @@ def calcular_quantidade(client, symbol, ativo_base, ativo_cotacao, percentual=0.
     """Calcula quantidade respeitando stepSize e validações de lote/valor mínimo."""
     try:
         filters = _filtros(client, symbol)
-        # A ordem é MARKET; quando disponível, valide o filtro específico dela.
-        lot = filters.get("MARKET_LOT_SIZE") or filters.get("LOT_SIZE")
-        if not lot:
-            raise ValueError("Filtro de lote ausente")
-        step = Decimal(lot["stepSize"])
+        lot = None
+        for filter_type in ("MARKET_LOT_SIZE", "LOT_SIZE"):
+            candidate = filters.get(filter_type)
+            if candidate is None:
+                continue
+            candidate_step = Decimal(candidate.get("stepSize", "0"))
+            if candidate_step > 0:
+                lot = candidate
+                step = candidate_step
+                break
+        if lot is None:
+            raise ValueError("Nenhum filtro de lote com stepSize positivo disponível")
 
         if percentual > 0:
             if not 0 < percentual <= 1:
