@@ -1,152 +1,107 @@
-#  CryptoTradingBot
+# CryptoTradingBot
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![Binance API](https://img.shields.io/badge/Binance-API-F0B90B?logo=binance&logoColor=black)](https://binance-docs.github.io/apidocs/)
-[![Status](https://img.shields.io/badge/Status-Demo%20Trading-orange)](#disclaimer)
+Bot modular de negociação algorítmica em Python, integrado à API da Binance. Ele monitora o par `ZECUSDT` em candles de 15 minutos, calcula sinais com EMA e RSI e envia ordens a mercado. O projeto também oferece notificações por e-mail e salva o estado da posição em `bot_state.json`.
 
-A modular algorithmic trading bot developed in Python, integrated with the official **Binance API**. The bot follows a clean, professional architecture that separates responsibilities (data, strategy, execution, and notifications) and is configured to run in both **Binance Demo Trading**, allowing you to test strategies without financial risk, and **Real Trading** environments.
+> **Atenção:** a configuração atual usa a API de negociação **real** (`USE_DEM0 = False`) e pode enviar ordens com dinheiro real. Revise `config.py` e teste cuidadosamente antes de executar. Negociação de criptoativos pode causar perdas.
 
----
+## Funcionalidades
 
-##  Table of Contents
+- Cruzamento de EMA 9 e EMA 21, com RSI 14 para confirmar entradas.
+- Compra usando 95% do saldo livre de USDT; quantidade ajustada aos filtros de lote e valor mínimo da Binance.
+- Saída por cruzamento de baixa, stop-loss de 2% ou take-profit de 4%.
+- Reconciliação inicial do saldo com o estado local para evitar entradas quando há uma posição preexistente sem correspondência.
+- Consulta de candles fechados e verificação de preço a cada 60 segundos.
+- Alertas HTML por e-mail para execuções e erros.
 
-- [Features](#-features)
-- [Project Structure](#-project-structure)
-- [Strategy](#-strategy)
-- [Getting Started](#-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
-  - [Running the Bot](#running-the-bot)
-- [Email Notifications](#-email-notifications)
-- [Disclaimer](#-disclaimer)
+Os parâmetros de risco, RSI e ambiente estão em `config.py`. O mercado, intervalo e frequência de consulta estão definidos no início de `main.py`.
 
----
-
-##  Features
-
-- **Secure Connection** — Automated authentication and robust handling of API drops or network issues.
-- **Integrated Strategy** — Uses Exponential Moving Average crossovers (EMA 9 and EMA 21) filtered by the Relative Strength Index (RSI 14) for decision-making.
-- **Automatic Position Sizing** — Mathematically calculates trade sizes (e.g., investing 90% of the available balance, not recommended to switch to 100%) while strictly adhering to Binance's `LOT_SIZE` and decimal precision rules.
-- **Email Notifications** — Sends HTML-formatted alerts (trade signals, order execution, errors) via a dedicated notifier module.
-- **Modular Architecture** — Code is divided into independent modules, making it easy to test, maintain, and extend with new strategies.
-- **Detailed Logging** — Built-in logging system for real-time monitoring of trades, signals, and errors.
-
----
-
-##  Project Structure
+## Estrutura
 
 ```text
-CryptoTradingBot/
-│
-├── config.py                 # Global settings and environment control (Demo/Real)
-├── main.py                   # Orchestrator, main loop, and state management (Positioned/Flat)
-│
-├── core/
-│   ├── connection.py         # Authentication and API ping testing
-│   └── notifier.py           # Builds and sends email alerts (trades, errors, status)
-│
-├── data/
-│   └── market.py             # Fetches historical klines (candles) and builds DataFrames
-│
-├── strategies/
-│   └── rsi_ema.py            # The Brain: indicator math via pandas-ta and trade signals
-│
-├── execution/
-│   └── orders.py             # The Hands: safe quantity calculation and Market Order execution
-│
-└── templates/
-    └── email_alert.html      # HTML template used by notifier.py for email alerts
+core/connection.py     Conexão e autenticação na Binance
+core/notifier.py       Envio de alertas por e-mail
+data/market.py         Consulta e preparação de candles
+execution/orders.py   Saldo, filtros, quantidade e ordens a mercado
+strategies/rsi_ema.py  Sinais de EMA e RSI
+templates/             Modelo HTML do e-mail
+config.py              Credenciais e parâmetros da estratégia
+main.py                Loop principal e persistência do estado
+bot_state.json         Estado local da posição (criado/atualizado em execução)
 ```
 
----
+## Requisitos
 
-##  Strategy
+- Python 3.12 (a imagem Docker usa `python:3.12-slim`)
+- Uma conta Binance e uma chave de API com permissões adequadas ao ambiente selecionado
+- Docker, opcionalmente
 
-The bot trades based on a trend-following signal confirmed by momentum:
+## Instalação local
 
-| Indicator | Role |
-|---|---|
-| **EMA 9 / EMA 21** | Identifies short-term trend direction via crossover |
-| **RSI 14** | Filters signals to avoid entries in overbought/oversold conditions |
-
-A position is only opened when both the EMA crossover **and** the RSI filter agree, reducing false signals from trend reversals.
-
----
-
-##  Getting Started
-
-### Prerequisites
-
-#### For local execution: 
-- Python 3.10+
-- A Binance account with API keys generated for the **Demo Trading (Testnet)** environment
-- `pip` for dependency management
-
-#### For Docker Deployment:
-- Docker
-
-
-### Installation
-
-#### Local Python Environment:
 ```bash
 git clone https://github.com/gsiilva/CryptoTradingBot.git
 cd CryptoTradingBot
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+```
+
+Ative o ambiente virtual e instale as dependências:
+
+```bash
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# Linux/macOS (use este comando em vez do comando do Windows)
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-#### Docker:
-```bash
-git clone https://github.com/gsiilva/CryptoTradingBot.git
-cd CryptoTradingBot
-docker build -t crypto-trading-botv1 .
+## Configuração
+
+O programa lê as credenciais das variáveis de ambiente. Defina estas quatro variáveis antes de iniciar:
+
+| Variável | Uso |
+|---|---|
+| `BINANCE_API_KEY_REAL` | Chave da API Binance |
+| `BINANCE_API_SECRET_REAL` | Segredo da API Binance |
+| `BOT_EMAIL_ADRESS` | Conta Gmail remetente (o nome da variável usa essa grafia no código) |
+| `BOT_16_PASSWORD` | Senha de app do Gmail |
+| `PERSONAL_EMAIL` | Endereço destinatário dos alertas |
+
+Exemplo no PowerShell (válido para a sessão atual):
+
+```powershell
+$env:BINANCE_API_KEY_REAL = "sua_chave"
+$env:BINANCE_API_SECRET_REAL = "seu_segredo"
+$env:BOT_EMAIL_ADRESS = "remetente@gmail.com"
+$env:BOT_16_PASSWORD = "senha_de_app"
+$env:PERSONAL_EMAIL = "destinatario@example.com"
 ```
 
-### Configuration
+Não compartilhe nem versione suas credenciais. Para usar o ambiente Demo, ajuste `USE_DEM0` em `config.py` e use credenciais correspondentes ao ambiente Demo. O valor padrão no código é `False` (Real).
 
-Credentials are read directly from **system environment variables** via `os.getenv()` — no `.env` file is used. On Windows, set the variables before running the bot
+## Execução
 
-For Docker deployments, create a .env file containing the required environment variables
-
-### Running the Bot
-
-#### Local:
 ```bash
 python main.py
 ```
 
-#### Docker:
+O processo permanece em execução e registra eventos no console. Interrompa-o com `Ctrl+C`. `bot_state.json` é usado para retomar o acompanhamento da posição após reinicializações; mantenha esse arquivo persistente e não o edite enquanto o bot estiver rodando.
+
+## Docker
+
+Construa a imagem e execute o container passando as mesmas variáveis de ambiente:
+
 ```bash
-docker run --env-file .env crypto-trading-botv1
+docker build -t crypto-trading-bot .
+docker run --env-file .env -v "${PWD}/bot_state.json:/app/bot_state.json" crypto-trading-bot
 ```
 
-For continuous execution with automatic container restart:
-```bash
-docker run -d \
-  --restart unless-stopped \
-  --env-file .env \
-  --name crypto-trading-bot \
-  crypto-trading-botv1
-```
+Crie `.env` localmente com as variáveis listadas acima (uma por linha). O arquivo `.env` está no `.gitignore`; não o adicione ao controle de versão. O volume mantém o estado local entre execuções. Para operação contínua, configure a política de reinício do container conforme seu ambiente.
 
-The bot will authenticate, start monitoring the configured market, and log all signals, trades, and errors to the console.
+## Estratégia e gestão de posição
 
----
+Uma compra é considerada quando a EMA 9 cruza acima da EMA 21 e o RSI está entre os limites configurados (40–65 por padrão) e subindo. A venda ocorre no cruzamento de baixa ou quando o preço atinge o stop ou o alvo definidos. Os sinais são avaliados em candles fechados; stop-loss e take-profit usam o preço atual consultado durante cada ciclo.
 
-##  Email Notifications
+## Aviso
 
-The `core/notifier.py` module sends formatted HTML emails (rendered from `templates/email_alert.html`) for key events, such as:
-
--  Successful trade execution
--  Errors or connection issues
--  General status updates
-
----
-
-## ️ Disclaimer
-
-This project is intended for **educational and testing purposes only**. It is configured by default to run against Binance's **Demo Trading (Testnet)** environment. Trading cryptocurrencies involves substantial risk of loss. If you choose to run this bot against a real account, you do so **at your own risk** — the author assumes no responsibility for any financial losses.
-
+Este software é fornecido para fins educacionais e de teste, sem garantia de resultados. Verifique a configuração, as permissões da chave e as ordens antes de usar. O usuário é responsável pelas decisões e perdas associadas à negociação.
